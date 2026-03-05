@@ -1,0 +1,212 @@
+/**
+ * Copyright (c) 2024-present mrofisr
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// src/App.jsx
+import { useState, lazy, Suspense } from "react";
+import { useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
+import { Helmet, HelmetProvider } from "react-helmet-async";
+import { Heart } from "lucide-react";
+import { useInvitation } from "@/features/invitation";
+// import { useAudio } from "@/hooks/use-audio";
+import staticConfig from "@/config/config";
+
+// Lazy load components for better performance
+const Layout = lazy(() => import("@/components/layout/layout"));
+const MainContent = lazy(
+  () => import("@/features/invitation/components/main-content"),
+);
+const LandingPage = lazy(
+  () => import("@/features/invitation/components/landing-page"),
+);
+const AdminPanel = lazy(
+  () => import("@/features/admin/components/admin-panel"),
+);
+
+/**
+ * App component serves as the root of the application.
+ *
+ * It manages the state to determine whether the invitation content should be shown.
+ * Initially, the invitation is closed and the LandingPage component is rendered.
+ * Once triggered, the Layout component containing MainContent is displayed.
+ *
+ * This component also uses HelmetProvider and Helmet to set up various meta tags:
+ *   - Primary meta tags: title and description.
+ *   - Open Graph tags for Facebook.
+ *   - Twitter meta tags for summary and large image preview.
+ *   - Favicon link and additional meta tags for responsive design and theme color.
+ *
+ * @component
+ * @example
+ * // Renders the App component
+ * <App />
+ */
+function App() {
+  const [isInvitationOpen, setIsInvitationOpen] = useState(false);
+  const { config, isLoading, error } = useInvitation();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
+
+  // Use config from API if available, otherwise fall back to static config
+  const activeConfig = config || staticConfig.data;
+
+  // Initialize audio with config settings
+  // const audioControls = useAudio({
+  //   src: activeConfig?.audio?.src || "/audio/fulfilling-humming.mp3",
+  //   loop: activeConfig?.audio?.loop !== false,
+  // });
+
+  // Handle opening the invitation - this is called from a user click
+  const handleOpenInvitation = async () => {
+    // Start audio playback during user interaction
+    // await audioControls.play();
+    setIsInvitationOpen(true);
+  };
+
+  if (isAdmin) {
+    return (
+      <HelmetProvider>
+        <Helmet>
+          <title>Админ‑панель</title>
+          <meta name="title" content="Админ‑панель" />
+          <meta
+            name="description"
+            content="Управление персональными обращениями и ссылками"
+          />
+          <meta name="robots" content="noindex, nofollow, noarchive, nocache" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        </Helmet>
+        <Suspense
+          fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-pink-50">
+              <div className="text-center">
+                <Heart
+                  className="h-12 w-12 text-rose-500 mx-auto mb-4 animate-pulse"
+                  fill="currentColor"
+                />
+                <p className="text-gray-600">Загрузка...</p>
+              </div>
+            </div>
+          }
+        >
+          <AdminPanel />
+        </Suspense>
+      </HelmetProvider>
+    );
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-pink-50">
+        <div className="text-center">
+          <Heart
+            className="h-12 w-12 text-rose-500 mx-auto mb-4 animate-pulse"
+            fill="currentColor"
+          />
+          <p className="text-gray-600">Загрузка приглашения...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state only if there is a real error AND no static config available
+  // When running without backend, activeConfig will be staticConfig, so we shouldn't show error
+  if (error && !activeConfig) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-pink-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-rose-500 text-6xl mb-4">!</div>
+          <h1 className="text-2xl font-serif text-gray-800 mb-2">
+            Приглашение не найдено
+          </h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-sm text-gray-500">
+            Проверьте ссылку или свяжитесь с организаторами.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <HelmetProvider>
+      <Helmet>
+        {/* Primary Meta Tags */}
+        <title>{activeConfig.title}</title>
+        <meta name="title" content={activeConfig.title} />
+        <meta name="description" content={activeConfig.description} />
+        {/* Prevent Wayback Machine and Web Archiving */}
+        <meta name="robots" content="noindex, nofollow, noarchive, nocache" />
+        <meta name="googlebot" content="noindex, nofollow, noarchive" />
+        <meta name="bingbot" content="noindex, nofollow, noarchive" />
+        <meta name="archive" content="no" />
+        <meta
+          name="cache-control"
+          content="no-cache, no-store, must-revalidate"
+        />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:title" content={activeConfig.title} />
+        <meta property="og:description" content={activeConfig.description} />
+        <meta property="og:image" content={activeConfig.ogImage} />
+        {/* Twitter */}
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:url" content={window.location.href} />
+        <meta property="twitter:title" content={activeConfig.title} />
+        <meta
+          property="twitter:description"
+          content={activeConfig.description}
+        />
+        <meta property="twitter:image" content={activeConfig.ogImage} />
+        {/* Favicon */}
+        <link rel="icon" type="image/x-icon" href={activeConfig.favicon} />
+        {/* Additional Meta Tags */}
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#FDA4AF" /> {/* Rose-300 color */}
+      </Helmet>
+
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-pink-50">
+            <div className="text-center">
+              <Heart
+                className="h-12 w-12 text-rose-500 mx-auto mb-4 animate-pulse"
+                fill="currentColor"
+              />
+              <p className="text-gray-600">Загрузка...</p>
+            </div>
+          </div>
+        }
+      >
+        <AnimatePresence mode="wait">
+          {!isInvitationOpen ? (
+            <LandingPage onOpenInvitation={handleOpenInvitation} />
+          ) : (
+            <Layout>
+              <MainContent />
+            </Layout>
+          )}
+        </AnimatePresence>
+      </Suspense>
+    </HelmetProvider>
+  );
+}
+
+export default App;
